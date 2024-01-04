@@ -1,9 +1,92 @@
 #include "basicDS.h"
 #include <queue>
 #include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
 using namespace std;
 /* You can add more functions or variables in each class.
    But you "Shall Not" delete any functions or variables that TAs defined. */
+
+// Find the set to which an element i belongs
+int find(vector<int> &parent, int i)
+{
+	if (parent[i] != i)
+	{
+		parent[i] = find(parent, parent[i]); // Path compression
+	}
+	return parent[i];
+}
+// Union the sets of x and y
+void unionSet(vector<int> &parent, int x, int y)
+{
+	int xset = find(parent, x);
+	int yset = find(parent, y);
+	if (xset != yset)
+	{
+		parent[xset] = yset;
+	}
+}
+
+// Main function to check if adding an edge creates a cycle
+bool hasCycle(const vector<treeEdge> &edges, int V)
+{
+	vector<int> parent(V + 1);
+
+	// Initially, all vertices are in their own set.
+	for (int i = 0; i <= V; ++i)
+	{
+		parent[i] = i;
+	}
+
+	for (const auto &edge : edges)
+	{
+		int x = find(parent, edge.vertex[0]);
+		int y = find(parent, edge.vertex[1]);
+
+		// If x and y are in the same set, a cycle is found.
+		if (x == y)
+		{
+			return true;
+		}
+
+		// Union the sets of x and y.
+		unionSet(parent, x, y);
+	}
+
+	// No cycles found.
+	return false;
+}
+
+void DFS(int v, unordered_map<int, vector<int>> &adjList, unordered_set<int> &visited, vector<int> &result)
+{
+	visited.insert(v);
+	result.push_back(v);
+
+	// Recur for all the vertices adjacent to this vertex
+	for (int u : adjList[v])
+	{
+		if (visited.find(u) == visited.end())
+		{
+			DFS(u, adjList, visited, result);
+		}
+	}
+}
+
+vector<int> getReachableVertices(int start, const vector<treeEdge> &edges)
+{
+	unordered_map<int, vector<int>> adjList;
+	for (const auto &edge : edges)
+	{
+		adjList[edge.vertex[0]].push_back(edge.vertex[1]);
+		adjList[edge.vertex[1]].push_back(edge.vertex[0]); // If the graph is undirected
+	}
+
+	vector<int> result;
+	unordered_set<int> visited;
+	DFS(start, adjList, visited, result);
+	return result;
+}
+
 void printGraph(Graph &G)
 {
 	cout << "Graph:" << endl;
@@ -31,9 +114,10 @@ void printTree(Tree &T)
 	cout << "E:";
 	for (const auto &edge : T.E)
 	{
-		cout << edge.vertex[0] << " " << edge.vertex[1] << " ";
+		cout << edge.vertex[0] << "-" << edge.vertex[1] << " ";
 	}
 	cout << endl;
+
 	cout << endl;
 }
 
@@ -70,70 +154,6 @@ Problem1::~Problem1()
 	/* Write your code here. */
 }
 
-// Helper function to check if a vertex is in the Set
-bool isVertexInSet(const Set &set, int vertex)
-{
-	return find(set.destinationVertices.begin(), set.destinationVertices.end(), vertex) != set.destinationVertices.end();
-}
-
-// Helper function to find the vertex with minimum key value,
-// from the set of vertices not yet included in MST
-int minKey(const vector<int> &key, const vector<bool> &mstSet, int V)
-{
-	int min = INT_MAX, min_index;
-
-	for (int v = 0; v < V; v++)
-		if (!mstSet[v] && key[v] < min)
-			min = key[v], min_index = v;
-
-	return min_index;
-}
-void primMST(Graph &G, Tree &MTid)
-{
-	// array to store constructed MST
-	int parent[G.V.size()];
-
-	// key values used to pick minimum weight edge in cut
-	int key[G.V.size()];
-
-	// to represent set of vertices not yet included in MST
-	bool mstSet[G.V.size()];
-
-	// initialize all keys as INFINITE
-	for (int i = 0; i < G.V.size(); i++)
-	{
-		key[i] = INT_MAX;
-		mstSet[i] = false;
-	}
-
-	// always include first 1st vertex in MST.
-	// make key 0 so that this vertex is picked as first vertex
-	key[MTid.s] = 0;
-
-	// the source is always the root of MST
-	parent[MTid.s] = -1;
-
-	// The MST will have V vertices
-	for (int count = 0; count < G.V.size() - 1; count++)
-	{
-
-		int u = minKey(key, mstSet, G.V.size());
-		// pick the minimum key vertex from the
-		// set of vertices not yet included in MST
-
-		// add the picked vertex to the MST Set
-		mstSet[u] = true;
-		cout << "u: " << u << endl;
-
-		// Update key value and parent index of
-		// the adjacent vertices of the picked vertex.
-		// Consider only those vertices which are not
-		// yet included in MST
-		// for (int v = 0; v < V; v++)
-		// {
-		// }
-	}
-}
 void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 {
 	/* Store your output graph and multicast tree into G and MTid */
@@ -147,54 +167,64 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 	MTid.ct = 0;
 
 	cout << "id: " << MTid.id << endl;
-	cout << "s: " << MTid.s << endl;
+	cout << "source(s): " << MTid.s << endl;
 	cout << "cost total(ct): " << MTid.ct << endl;
 	cout << "traffic demand(t): " << t << endl;
 
-	Set DV; // Destination vertices
-	DV.size = D.size;
-	primMST(G, MTid);
-	// print all the DV
-	cout << "size of Destination set: " << D.size << " [ ";
+	cout << "destination vertices: ";
+	for (const auto &vertex : D.destinationVertices)
+		cout << vertex << " ";
+	cout << endl;
+
+	// sorting the edges in ascending order of ce
+	sort(G.E.begin(), G.E.end(), [](const graphEdge &a, const graphEdge &b)
+		 { return a.ce < b.ce; });
+
+	// print graph G after sorting
+	printGraph(G);
+
+	cout << "adding process:";
+	// loop through all the edges in the graph
+	for (auto &edge : G.E)
+	{
+
+		// add the edge to the multicast tree MTid
+		MTid.E.push_back({edge.vertex[0], edge.vertex[1]});
+
+		// if (no cycle is formed && remainingbandwidth(b) is sufficient for bandwidthcost(ce)
+		if (hasCycle(MTid.E, G.V.size()) == false && edge.b >= edge.ce)
+		{
+			cout << " " << edge.vertex[0] << "-" << edge.vertex[1];
+			// update the remaining bandwidth(b) of the edge with the remainingbandwidth(b) deducted with bandwidthcost(ce)
+			edge.b -= edge.ce;
+			// update the transmission cost(ct) of the multicast tree with the bandwidthcost(ce)
+			MTid.ct += edge.ce * t;
+		}
+		else
+		{
+			// remove the edge from the multicast tree
+			MTid.E.pop_back();
+		}
+	}
+	cout << endl
+		 << endl;
+
+	MTid.V = getReachableVertices(MTid.s, MTid.E);
+
+	// print the multicast tree
+	printTree(MTid);
+	printGraph(G);
+	// print misisng vertices
+	cout << "Missing vertices:";
 	for (const auto &vertex : D.destinationVertices)
 	{
-		cout << vertex << " ";
+		if (find(MTid.V.begin(), MTid.V.end(), vertex) == MTid.V.end())
+		{
+			cout << " " << vertex;
+		}
 	}
-	cout << "]" << endl;
-
-	// Modified priority queue that stores indices of graphEdge objects
-	auto compare = [&G](const int &aIdx, const int &bIdx)
-	{ return G.E[aIdx].ce > G.E[bIdx].ce; };
-	priority_queue<int, vector<int>, decltype(compare)> edgesQueue(compare);
-
-	cout << endl;
-	// output all MTid.V
-	cout << "MTid.V.size: " << MTid.V.size() << "[";
-	for (const auto &vertex : MTid.V)
-	{
-		cout << vertex << " ";
-	}
-	cout << "]" << endl;
-
-	// output all MTid.E
-	cout << "MTid.E.size: " << MTid.E.size() << "[";
-	for (const auto &edge : MTid.E)
-	{
-		cout << edge.vertex[0] << " " << edge.vertex[1] << " ";
-	}
-	cout << "]" << endl;
-
-	// output all edgesQueue
-	cout << "edgesQueue.size: " << edgesQueue.size() << "[";
-	while (!edgesQueue.empty())
-	{
-		cout << edgesQueue.top() << " ";
-		edgesQueue.pop();
-	}
-	cout << "]" << endl;
-
-	// Check if the multicast tree is full (all destinations are included)
-	// If not, this should be handled according to the project specifications
+	cout << endl
+		 << endl;
 
 	return;
 }
