@@ -76,6 +76,64 @@ bool isVertexInSet(const Set &set, int vertex)
 	return find(set.destinationVertices.begin(), set.destinationVertices.end(), vertex) != set.destinationVertices.end();
 }
 
+// Helper function to find the vertex with minimum key value,
+// from the set of vertices not yet included in MST
+int minKey(const vector<int> &key, const vector<bool> &mstSet, int V)
+{
+	int min = INT_MAX, min_index;
+
+	for (int v = 0; v < V; v++)
+		if (!mstSet[v] && key[v] < min)
+			min = key[v], min_index = v;
+
+	return min_index;
+}
+void primMST(Graph &G, Tree &MTid)
+{
+	// array to store constructed MST
+	int parent[G.V.size()];
+
+	// key values used to pick minimum weight edge in cut
+	int key[G.V.size()];
+
+	// to represent set of vertices not yet included in MST
+	bool mstSet[G.V.size()];
+
+	// initialize all keys as INFINITE
+	for (int i = 0; i < G.V.size(); i++)
+	{
+		key[i] = INT_MAX;
+		mstSet[i] = false;
+	}
+
+	// always include first 1st vertex in MST.
+	// make key 0 so that this vertex is picked as first vertex
+	key[MTid.s] = 0;
+
+	// the source is always the root of MST
+	parent[MTid.s] = -1;
+
+	// The MST will have V vertices
+	for (int count = 0; count < G.V.size() - 1; count++)
+	{
+
+		int u = minKey(key, mstSet, G.V.size());
+		// pick the minimum key vertex from the
+		// set of vertices not yet included in MST
+
+		// add the picked vertex to the MST Set
+		mstSet[u] = true;
+		cout << "u: " << u << endl;
+
+		// Update key value and parent index of
+		// the adjacent vertices of the picked vertex.
+		// Consider only those vertices which are not
+		// yet included in MST
+		// for (int v = 0; v < V; v++)
+		// {
+		// }
+	}
+}
 void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 {
 	/* Store your output graph and multicast tree into G and MTid */
@@ -94,12 +152,8 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 	cout << "traffic demand(t): " << t << endl;
 
 	Set DV; // Destination vertices
-	DV.size = 0;
-	DV.destinationVertices.reserve(D.size);
-
-	// remove the source from the destination set
-	D.destinationVertices.erase(remove(D.destinationVertices.begin(), D.destinationVertices.end(), s), D.destinationVertices.end());
-	D.size--;
+	DV.size = D.size;
+	primMST(G, MTid);
 	// print all the DV
 	cout << "size of Destination set: " << D.size << " [ ";
 	for (const auto &vertex : D.destinationVertices)
@@ -113,64 +167,6 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 	{ return G.E[aIdx].ce > G.E[bIdx].ce; };
 	priority_queue<int, vector<int>, decltype(compare)> edgesQueue(compare);
 
-	// Add indices of all edges from the source to the queue if they have enough bandwidth
-	cout << "edges in the queue: " << endl;
-	for (int i = 0; i < G.E.size(); ++i)
-	{
-		if ((G.E[i].vertex[0] == s || G.E[i].vertex[1] == s) && G.E[i].b >= t)
-		{
-			edgesQueue.push(i);
-			cout << i << "[" << G.E[i].vertex[0] << " " << G.E[i].vertex[1] << "] " << G.E[i].b << " " << G.E[i].be << " " << G.E[i].ce << endl;
-		}
-	}
-	cout << DV.size << " " << D.size << endl;
-	// Construct the multicast tree using a modified Prim's algorithm
-	while (!edgesQueue.empty() && DV.size < D.size)
-	{
-		int edgeIdx = edgesQueue.top();
-		edgesQueue.pop();
-		graphEdge &currentEdge = G.E[edgeIdx];
-
-		// Determine which vertex of the edge is not yet included
-		int v1 = currentEdge.vertex[0];
-		int v2 = currentEdge.vertex[1];
-		int newVertex = !isVertexInSet(DV, v1) ? v1 : v2;
-
-		// Check if the new vertex is not already included
-		if (!isVertexInSet(DV, newVertex))
-		{
-			// Include the new vertex and update the multicast tree
-			DV.destinationVertices.push_back(newVertex);
-			DV.size++;
-
-			if (find(MTid.V.begin(), MTid.V.end(), newVertex) == MTid.V.end())
-			{
-				MTid.V.push_back(newVertex); // Add newVertex only if it's not already in the tree
-			}
-			MTid.E.push_back({v1, v2});
-			MTid.ct += currentEdge.ce * t;
-
-			// Update the remaining bandwidth for the edge in the original graph
-			for (auto &edge : G.E)
-			{
-				if ((edge.vertex[0] == v1 && edge.vertex[1] == v2) || (edge.vertex[1] == v1 && edge.vertex[0] == v2))
-				{
-					edge.b -= t;
-					break;
-				}
-			}
-
-			// Add new edges to the priority queue
-			for (int i = 0; i < G.E.size(); ++i)
-			{
-				const auto &edge = G.E[i];
-				if ((edge.vertex[0] == newVertex || edge.vertex[1] == newVertex) && edge.b >= t && !isVertexInSet(DV, edge.vertex[0]) && !isVertexInSet(DV, edge.vertex[1]))
-				{
-					edgesQueue.push(i); // Push the index of the edge
-				}
-			}
-		}
-	}
 	cout << endl;
 	// output all MTid.V
 	cout << "MTid.V.size: " << MTid.V.size() << "[";
