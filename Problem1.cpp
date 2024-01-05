@@ -6,6 +6,27 @@
 using namespace std;
 /* You can add more functions or variables in each class.
    But you "Shall Not" delete any functions or variables that TAs defined. */
+class Problem1
+{
+private:
+	Graph networkGraph;
+	unordered_map<int, int> treeTrafficRequests; // map tree id to traffic request
+public:
+	Problem1(Graph G); // constructor
+	~Problem1();	   // destructor
+	void insert(int id, int s, Set D, int t, Graph &G, Tree &MTid);
+	void stop(int id, Graph &G, Forest &MTidForest);
+	void rearrange(Graph &G, Forest &MTidForest);
+	void setTrafficRequest(int treeId, int traffic)
+	{
+		treeTrafficRequests[treeId] = traffic;
+	}
+
+	int getTrafficRequest(int treeId)
+	{
+		return treeTrafficRequests.count(treeId) ? treeTrafficRequests[treeId] : -1; // Return -1 if not found
+	}
+};
 void printGraph(Graph &G)
 {
 	cout << "Graph:" << endl;
@@ -70,7 +91,6 @@ void unionSet(vector<int> &parent, int x, int y)
 		parent[xset] = yset;
 	}
 }
-
 // Main function to check if adding an edge creates a cycle
 bool hasCycle(const vector<treeEdge> &edges, int V)
 {
@@ -131,7 +151,7 @@ vector<int> getReachableVertices(int start, const vector<treeEdge> &edges)
 	return result;
 }
 
-void extendTree(Forest &MTidForest, Graph &G)
+void extendTreeMST(Forest &MTidForest, Graph &G, unordered_map<int, int> &treeTrafficRequests)
 {
 	int totalVertices = G.V.size();
 	// check the missing vertices for each multicast tree
@@ -151,7 +171,7 @@ void extendTree(Forest &MTidForest, Graph &G)
 				}
 			}
 			// print the missing vertices
-			cout << "tree id: " << tree.id << ", "
+			cout << "extending MST, tree id: " << tree.id << ", "
 				 << "missing vertice(s):";
 
 			for (const auto &vertex : missingVertices)
@@ -174,7 +194,11 @@ void extendTree(Forest &MTidForest, Graph &G)
 							// update the remaining bandwidth(b) of the edge with the remainingbandwidth(b) deducted with bandwidthcost(ce)
 							edge.b -= edge.ce;
 							// update the transmission cost(ct) of the multicast tree with the bandwidthcost(ce)
-							tree.ct += edge.ce // PROBLEM since t is not given
+							tree.ct += edge.ce * treeTrafficRequests[tree.id];
+							// update the vertices of the multicast tree
+							tree.V = getReachableVertices(tree.s, tree.E);
+
+							// PROBLEM since t is not given
 						}
 						else
 						{
@@ -196,19 +220,6 @@ void extendTree(Forest &MTidForest, Graph &G)
 		}
 	}
 }
-
-class Problem1
-{
-private:
-	Graph networkGraph;
-
-public:
-	Problem1(Graph G); // constructor
-	~Problem1();	   // destructor
-	void insert(int id, int s, Set D, int t, Graph &G, Tree &MTid);
-	void stop(int id, Graph &G, Forest &MTidForest);
-	void rearrange(Graph &G, Forest &MTidForest);
-};
 
 Problem1::Problem1(Graph G)
 {
@@ -242,10 +253,12 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 	MTid.id = id;
 	MTid.ct = 0;
 
-	cout << "id: " << MTid.id << endl;
+	cout << "Insert tree id: " << MTid.id << endl;
 	cout << "source(s): " << MTid.s << endl;
 	cout << "cost total(ct): " << MTid.ct << endl;
 	cout << "traffic demand(t): " << t << endl;
+	// store traffic request in treeTrafficRequests
+	setTrafficRequest(id, t);
 
 	cout << "destination vertices: ";
 	for (const auto &vertex : D.destinationVertices)
@@ -257,6 +270,7 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 		 { return a.ce < b.ce; });
 
 	// print graph G after sorting
+	cout << endl;
 	printGraph(G);
 
 	cout << "adding process:";
@@ -342,7 +356,7 @@ void Problem1::stop(int id, Graph &G, Forest &MTidForest)
 		cout << "after cutting ";
 		printForest(MTidForest);
 
-		extendTree(MTidForest, G);
+		extendTreeMST(MTidForest, G, treeTrafficRequests);
 	}
 	else // if not found
 	{
