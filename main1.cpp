@@ -106,7 +106,9 @@ int main(void)
 			Set D;
 			insert_input(id, s, t, D, input_string);
 			P1.insert(id, s, D, t, G, T);
-			// printTree(T);
+			// add tree to forest
+			F.size++;
+			F.trees.push_back(T);
 		}
 		else if (input_string[0] == 's')
 		{

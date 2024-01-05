@@ -6,7 +6,51 @@
 using namespace std;
 /* You can add more functions or variables in each class.
    But you "Shall Not" delete any functions or variables that TAs defined. */
+void printGraph(Graph &G)
+{
+	cout << "Graph:" << endl;
+	for (const auto &edge : G.E)
+	{
+		cout << edge.vertex[0] << " " << edge.vertex[1] << " " << edge.b << " " << edge.be << " " << edge.ce << endl;
+	}
+	cout << endl;
+}
 
+void printTree(Tree &T)
+{
+	cout << "Tree:" << endl;
+	cout << "id:" << T.id << endl;
+	cout << "s:" << T.s << endl;
+	cout << "ct:" << T.ct << endl;
+	cout << "V size:" << T.V.size() << endl;
+	cout << "V:";
+	for (const auto &vertex : T.V)
+	{
+		cout << vertex << " ";
+	}
+	cout << endl;
+	cout << "E size:" << T.E.size() << endl;
+	cout << "E:";
+	for (const auto &edge : T.E)
+	{
+		cout << edge.vertex[0] << "-" << edge.vertex[1] << " ";
+	}
+	cout << endl;
+
+	cout << endl;
+}
+
+void printForest(Forest &F)
+{
+	cout << "Forest:" << endl;
+	cout << "size:" << F.size << endl;
+	for (const auto &tree : F.trees)
+	{
+		// print tree id and transmission cost(ct) of each multicast tree
+		cout << tree.id << " " << tree.ct << endl;
+	}
+	cout << endl;
+}
 // Find the set to which an element i belongs
 int find(vector<int> &parent, int i)
 {
@@ -87,38 +131,70 @@ vector<int> getReachableVertices(int start, const vector<treeEdge> &edges)
 	return result;
 }
 
-void printGraph(Graph &G)
+void extendTree(Forest &MTidForest, Graph &G)
 {
-	cout << "Graph:" << endl;
-	for (const auto &edge : G.E)
+	int totalVertices = G.V.size();
+	// check the missing vertices for each multicast tree
+	// if yes, find the minimum additional cost to add
+	// the missing vertices to the existing multicast tree
+	for (auto &tree : MTidForest.trees)
 	{
-		cout << edge.vertex[0] << " " << edge.vertex[1] << " " << edge.b << " " << edge.be << " " << edge.ce << endl;
-	}
-	cout << endl;
-}
+		if (tree.V.size() < totalVertices)
+		{
+			// find the missing vertices
+			vector<int> missingVertices;
+			for (int i = 1; i <= totalVertices; i++)
+			{
+				if (find(tree.V.begin(), tree.V.end(), i) == tree.V.end())
+				{
+					missingVertices.push_back(i);
+				}
+			}
+			// print the missing vertices
+			cout << "tree id: " << tree.id << ", "
+				 << "missing vertice(s):";
 
-void printTree(Tree &T)
-{
-	cout << "Tree:" << endl;
-	cout << "id:" << T.id << endl;
-	cout << "s:" << T.s << endl;
-	cout << "ct:" << T.ct << endl;
-	cout << "V size:" << T.V.size() << endl;
-	cout << "V:";
-	for (const auto &vertex : T.V)
-	{
-		cout << vertex << " ";
-	}
-	cout << endl;
-	cout << "E size:" << T.E.size() << endl;
-	cout << "E:";
-	for (const auto &edge : T.E)
-	{
-		cout << edge.vertex[0] << "-" << edge.vertex[1] << " ";
-	}
-	cout << endl;
+			for (const auto &vertex : missingVertices)
+			{
+				cout << " " << vertex;
+			}
+			cout << endl;
+			// since edges in G is already sorted in ascending order of ce, it is not necessary to sort it again
+			// find edges in G that contains the missing vertices in either vertex[0] or vertex[1]
 
-	cout << endl;
+			for (auto &vertice : missingVertices) // iterate through all the missing vertices
+			{
+				for (auto &edge : G.E)											// iterate through all the edges in G
+					if (edge.vertex[0] == vertice || edge.vertex[1] == vertice) // if the edge contains the missing vertex
+					{
+						tree.E.push_back({edge.vertex[0], edge.vertex[1]}); // add the edge to the multicast tree
+
+						if (hasCycle(tree.E, G.V.size()) == false && edge.b >= edge.ce) // if no cycle is formed and remaining bandwidth(b) is sufficient for bandwidthcost(ce)
+						{
+							// update the remaining bandwidth(b) of the edge with the remainingbandwidth(b) deducted with bandwidthcost(ce)
+							edge.b -= edge.ce;
+							// update the transmission cost(ct) of the multicast tree with the bandwidthcost(ce)
+							tree.ct += edge.ce // PROBLEM since t is not given
+						}
+						else
+						{
+							// remove the edge from the multicast tree
+							tree.E.pop_back();
+						}
+					}
+			}
+			// print the multicast tree
+			printTree(tree);
+
+			//
+
+			// lets loop through all the edges in edgeswithmissingvertices
+			// find the MST of the edges
+
+			// once done with the MST of missing vertices,
+			// find the MST of edgeswithmissingvertices and the tree.E
+		}
+	}
 }
 
 class Problem1
@@ -233,8 +309,48 @@ void Problem1::stop(int id, Graph &G, Forest &MTidForest)
 {
 	/* Store your output graph and multicast tree forest into G and MTidForest
 	   Note: Please "only" include mutlicast trees that you added nodes in MTidForest. */
-
 	/* Write your code here. */
+	// print the multicast tree forest
+	printForest(MTidForest);
+	cout << "tree id to be removed:" << id << endl;
+
+	auto treeIt = find_if(MTidForest.trees.begin(), MTidForest.trees.end(), [id](const Tree &tree)
+						  { return tree.id == id; });
+
+	if (treeIt != MTidForest.trees.end()) // if tree with id is found
+	{
+		Tree &treeToBeRemoved = *treeIt;
+		// print the multicast tree to be removed
+		printTree(treeToBeRemoved);
+
+		// loop through all the edges in the multicast tree to be removed
+		// and add bandwidth cost(ce) to the remaining bandwidth(b) of the edge in the graph
+		for (auto &edge : treeToBeRemoved.E)
+		{
+			auto graphEdgeIt = find_if(G.E.begin(), G.E.end(), [&edge](const graphEdge &graphEdge)
+									   { return (graphEdge.vertex[0] == edge.vertex[0] && graphEdge.vertex[1] == edge.vertex[1]) || (graphEdge.vertex[0] == edge.vertex[1] && graphEdge.vertex[1] == edge.vertex[0]); });
+
+			if (graphEdgeIt != G.E.end())
+			{
+				graphEdgeIt->b += graphEdgeIt->ce;
+			}
+		}
+		// remove the multicast tree from the multicast tree forest
+		MTidForest.trees.erase(treeIt);
+		MTidForest.size--;
+		printGraph(G);
+		cout << "after cutting ";
+		printForest(MTidForest);
+
+		extendTree(MTidForest, G);
+	}
+	else // if not found
+	{
+		cout << "tree not found" << endl;
+		return;
+	}
+
+	cout << endl;
 
 	return;
 }
