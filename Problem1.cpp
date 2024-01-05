@@ -157,6 +157,10 @@ void extendTreeMST(Forest &MTidForest, Graph &G, unordered_map<int, int> &treeTr
 	// check the missing vertices for each multicast tree
 	// if yes, find the minimum additional cost to add
 	// the missing vertices to the existing multicast tree
+	// in case of the trees in forest has random id, sort the trees in ascending order of id
+	sort(MTidForest.trees.begin(), MTidForest.trees.end(), [](const Tree &a, const Tree &b)
+		 { return a.id < b.id; });
+
 	for (auto &tree : MTidForest.trees)
 	{
 		if (tree.V.size() < totalVertices)
@@ -189,10 +193,10 @@ void extendTreeMST(Forest &MTidForest, Graph &G, unordered_map<int, int> &treeTr
 					{
 						tree.E.push_back({edge.vertex[0], edge.vertex[1]}); // add the edge to the multicast tree
 
-						if (hasCycle(tree.E, G.V.size()) == false && edge.b >= edge.ce) // if no cycle is formed and remaining bandwidth(b) is sufficient for bandwidthcost(ce)
+						if (hasCycle(tree.E, G.V.size()) == false && edge.b >= treeTrafficRequests[tree.id]) // if no cycle is formed and remaining bandwidth(b) is sufficient for bandwidthcost(ce)
 						{
 							// update the remaining bandwidth(b) of the edge with the remainingbandwidth(b) deducted with bandwidthcost(ce)
-							edge.b -= edge.ce;
+							edge.b -= treeTrafficRequests[tree.id];
 							// update the transmission cost(ct) of the multicast tree with the bandwidthcost(ce)
 							tree.ct += edge.ce * treeTrafficRequests[tree.id];
 							// update the vertices of the multicast tree
@@ -282,11 +286,11 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 		MTid.E.push_back({edge.vertex[0], edge.vertex[1]});
 
 		// if (no cycle is formed && remainingbandwidth(b) is sufficient for bandwidthcost(ce)
-		if (hasCycle(MTid.E, G.V.size()) == false && edge.b >= edge.ce)
+		if (hasCycle(MTid.E, G.V.size()) == false && edge.b >= treeTrafficRequests[MTid.id])
 		{
 			cout << " " << edge.vertex[0] << "-" << edge.vertex[1];
 			// update the remaining bandwidth(b) of the edge with the remainingbandwidth(b) deducted with bandwidthcost(ce)
-			edge.b -= edge.ce;
+			edge.b -= t;
 			// update the transmission cost(ct) of the multicast tree with the bandwidthcost(ce)
 			MTid.ct += edge.ce * t;
 		}
@@ -300,6 +304,46 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 		 << endl;
 
 	MTid.V = getReachableVertices(MTid.s, MTid.E);
+
+	if (MTid.V.size() < G.V.size()) // if the multicast tree is not connected there are 3 cases
+	{
+
+		if (MTid.V.size() == 1) // if the source node is not reachable from the multicast tree edges
+		{
+			// clear MTid.ct
+			MTid.ct = 0;
+			// clear the edge
+			MTid.E.clear();
+		}
+		else
+		{ // if it is a partial tree, but the edges already counted in the transmission cost(ct)
+			cout << "partial tree" << endl;
+			// remove the edges that both vertices are not in the MTid.V
+			// and also add the bandwidth back to the edges in the graph
+			for (auto &edge : MTid.E)
+			{
+				if (find(MTid.V.begin(), MTid.V.end(), edge.vertex[0]) == MTid.V.end() && find(MTid.V.begin(), MTid.V.end(), edge.vertex[1]) == MTid.V.end())
+				{
+					// add the bandwidth back to the edges in the graph
+					// and deduct the transmission cost(ct) of the multicast tree with the bandwidthcost(ce)
+					for (auto &graphEdge : G.E)
+					{
+						if ((graphEdge.vertex[0] == edge.vertex[0] && graphEdge.vertex[1] == edge.vertex[1]) || (graphEdge.vertex[0] == edge.vertex[1] && graphEdge.vertex[1] == edge.vertex[0]))
+						{
+							graphEdge.b += treeTrafficRequests[MTid.id];
+							MTid.ct -= graphEdge.ce * treeTrafficRequests[MTid.id];
+						}
+					}
+					// remove the edge from the multicast tree
+					MTid.E.pop_back();
+				}
+			}
+		}
+	}
+
+	// check if s is reachable from the multicast tree edges
+	// if not, check if there are edges in the graph that can connect to the source node
+	// if yes, remove the edge in the tree that connects to the source node and find the smallest ce
 
 	// print the multicast tree
 	printTree(MTid);
@@ -346,14 +390,14 @@ void Problem1::stop(int id, Graph &G, Forest &MTidForest)
 
 			if (graphEdgeIt != G.E.end())
 			{
-				graphEdgeIt->b += graphEdgeIt->ce;
+				graphEdgeIt->b += getTrafficRequest(id);
 			}
 		}
 		// remove the multicast tree from the multicast tree forest
 		MTidForest.trees.erase(treeIt);
 		MTidForest.size--;
+		cout << "AFTER CUTTING TREE " << id << endl;
 		printGraph(G);
-		cout << "after cutting ";
 		printForest(MTidForest);
 
 		extendTreeMST(MTidForest, G, treeTrafficRequests);
@@ -373,8 +417,11 @@ void Problem1::rearrange(Graph &G, Forest &MTidForest)
 {
 	/* Store your output graph and multicast tree forest into G and MTidForest
 	   Note: Please include "all" active mutlicast trees in MTidForest. */
-
 	/* Write your code here. */
+
+	// print the multicast tree forest
+	printForest(MTidForest);
+	printGraph(G);
 
 	return;
 }
