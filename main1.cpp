@@ -21,7 +21,7 @@ void graph_input(Graph &G)
 	if (edge_num < 1 || edge_num > vertex_num * (vertex_num - 1))
 		return;
 
-	for (int i = 0; i < vertex_num; i++)
+	for (int i = 1; i <= vertex_num; i++)
 	{
 		G.V.push_back(i);
 	}
