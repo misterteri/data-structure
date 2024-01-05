@@ -320,22 +320,29 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 			cout << "partial tree" << endl;
 			// remove the edges that both vertices are not in the MTid.V
 			// and also add the bandwidth back to the edges in the graph
-			for (auto &edge : MTid.E)
+			for (auto it = MTid.E.begin(); it != MTid.E.end();)
 			{
-				if (find(MTid.V.begin(), MTid.V.end(), edge.vertex[0]) == MTid.V.end() && find(MTid.V.begin(), MTid.V.end(), edge.vertex[1]) == MTid.V.end())
+				if (find(MTid.V.begin(), MTid.V.end(), it->vertex[0]) == MTid.V.end() &&
+					find(MTid.V.begin(), MTid.V.end(), it->vertex[1]) == MTid.V.end())
 				{
-					// add the bandwidth back to the edges in the graph
-					// and deduct the transmission cost(ct) of the multicast tree with the bandwidthcost(ce)
+					// Add the bandwidth back to the edges in the graph
+					// and deduct the transmission cost(ct) of the multicast tree with the bandwidth cost(ce)
 					for (auto &graphEdge : G.E)
 					{
-						if ((graphEdge.vertex[0] == edge.vertex[0] && graphEdge.vertex[1] == edge.vertex[1]) || (graphEdge.vertex[0] == edge.vertex[1] && graphEdge.vertex[1] == edge.vertex[0]))
+						if ((graphEdge.vertex[0] == it->vertex[0] && graphEdge.vertex[1] == it->vertex[1]) ||
+							(graphEdge.vertex[0] == it->vertex[1] && graphEdge.vertex[1] == it->vertex[0]))
 						{
 							graphEdge.b += treeTrafficRequests[MTid.id];
 							MTid.ct -= graphEdge.ce * treeTrafficRequests[MTid.id];
+							break; // Assuming there is only one matching edge in G.E
 						}
 					}
-					// remove the edge from the multicast tree
-					MTid.E.pop_back();
+					// Remove the edge from the multicast tree
+					it = MTid.E.erase(it); // Erase returns the next valid iterator
+				}
+				else
+				{
+					++it; // Only increment if not erasing
 				}
 			}
 		}
