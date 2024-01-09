@@ -78,6 +78,7 @@ void insert_input(int &id, int &s, int &t, Set &D, string input_string)
 	}
 
 	t = stoi(q.front());
+
 	q.pop();
 }
 
@@ -94,7 +95,12 @@ int main(void)
 	Tree T;
 	Forest F;
 	graph_input(G);
-
+	// CHECKER 1 <= ce <= 100
+	for (int i = 0; i < G.E.size(); i++)
+	{
+		if (G.E[i].ce < 1 || G.E[i].ce > 100)
+			return 0;
+	}
 	Problem1 P1(G);
 
 	string input_string;
@@ -105,6 +111,7 @@ int main(void)
 			int id, s, t;
 			Set D;
 			insert_input(id, s, t, D, input_string);
+
 			P1.insert(id, s, D, t, G, T);
 			// add tree to forest
 			F.size++;

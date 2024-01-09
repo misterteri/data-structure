@@ -199,10 +199,10 @@ void extendTreeMST(Forest &MTidForest, Graph &G, unordered_map<int, int> &treeTr
 							edge.b -= treeTrafficRequests[tree.id];
 							// update the transmission cost(ct) of the multicast tree with the bandwidthcost(ce)
 							tree.ct += edge.ce * treeTrafficRequests[tree.id];
-							// update the vertices of the multicast tree
-							tree.V = getReachableVertices(tree.s, tree.E);
 
 							// PROBLEM since t is not given
+							// add a stop after found one edge that can connect to the missing vertex
+							break;
 						}
 						else
 						{
@@ -211,6 +211,8 @@ void extendTreeMST(Forest &MTidForest, Graph &G, unordered_map<int, int> &treeTr
 						}
 					}
 			}
+			// update the vertices of the multicast tree
+			tree.V = getReachableVertices(tree.s, tree.E);
 			// print the multicast tree
 			printTree(tree);
 
@@ -258,9 +260,9 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 	MTid.ct = 0;
 
 	cout << "Insert tree id: " << MTid.id << endl;
-	cout << "source(s): " << MTid.s << endl;
-	cout << "cost total(ct): " << MTid.ct << endl;
-	cout << "traffic demand(t): " << t << endl;
+	cout << "source[s]: " << MTid.s << endl;
+	cout << "cost total[ct]: " << MTid.ct << endl;
+	cout << "traffic demand[t]: " << t << endl;
 	// store traffic request in treeTrafficRequests
 	setTrafficRequest(id, t);
 
@@ -281,6 +283,9 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 	// loop through all the edges in the graph
 	for (auto &edge : G.E)
 	{
+		// CHECKER 1 <= t <= G.E.be <= 100
+		if (t < 1 || t > edge.be || edge.be > 100)
+			return;
 
 		// add the edge to the multicast tree MTid
 		MTid.E.push_back({edge.vertex[0], edge.vertex[1]});
@@ -430,5 +435,32 @@ void Problem1::rearrange(Graph &G, Forest &MTidForest)
 	printForest(MTidForest);
 	printGraph(G);
 
+	// lets first make sure that forest are sorted in ascending order of id
+	sort(MTidForest.trees.begin(), MTidForest.trees.end(), [](const Tree &a, const Tree &b)
+		 { return a.id < b.id; });
+
+	// reset the available bandwidth(b) of all the edges in the graph
+	for (auto &edge : G.E)
+	{
+		edge.b = edge.be;
+	}
+
+	// reset the transmission cost(ct) of all the multicast trees in the forest
+	for (auto &tree : MTidForest.trees)
+	{
+		tree.ct = 0;
+	}
+
+	// insert the multicast trees in the forest to the graph G with the traffic request(t)
+
+	// makes G.V into Set D
+	Set D;
+	D.destinationVertices = G.V;
+	D.size = G.V.size();
+
+	for (auto &tree : MTidForest.trees)
+	{
+		insert(tree.id, tree.s, D, getTrafficRequest(tree.id), G, tree);
+	}
 	return;
 }
