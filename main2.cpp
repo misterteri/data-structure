@@ -112,6 +112,8 @@ int main(void)
 			bool take;
 			insert_input(id, s, t, D, input_string);
 			take = P2.insert(id, s, D, t, G, T);
+			F.size++;
+			F.trees.push_back(T);
 		}
 		else if (input_string[0] == 's')
 		{

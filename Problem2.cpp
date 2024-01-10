@@ -94,8 +94,17 @@ bool areAllDestinationsCovered(const Set &D, const Tree &MTid)
 
 bool buildMulticastTree(int currentVertex, const Set &D, int t, vector<graphEdge> &edges, Tree &MTid)
 {
+	cout << "-----------------------------------" << endl;
+	// print edges in graph G
+	cout << "Graph edges:" << endl;
+	for (const auto &edge : edges)
+	{
+		cout << edge.vertex[0] << "-" << edge.vertex[1] << " " << edge.b << " " << edge.be << endl;
+	}
+
 	// print current vertex
-	cout << "current vertex: " << currentVertex << endl;
+	cout
+		<< "current vertex: " << currentVertex << endl;
 	// print D
 	cout << "D: ";
 	for (const auto &vertex : D.destinationVertices)
@@ -140,11 +149,15 @@ bool buildMulticastTree(int currentVertex, const Set &D, int t, vector<graphEdge
 			MTid.ct += edge.ce * t; // Update cost
 			cout << "ct: edge cost[ce] * traffic demand[t] = "
 				 << edge.ce << " * " << t << " = " << MTid.ct << endl;
-
+			cout << "-----------------------------------" << endl;
 			// Recurse or iterate for next vertex
 			if (buildMulticastTree(nextVertex, D, t, edges, MTid))
 			{
 				return true;
+			}
+			else
+			{
+				cout << "NEED ADDITIONAL CONDITION HERE!!!!!!!!!!!!!" << endl;
 			}
 		}
 	}
@@ -231,6 +244,9 @@ void Problem2::stop(int id, Graph &G, Forest &MTidForest)
 	   Note: Please "only" include mutlicast trees that you added nodes in MTidForest. */
 
 	/* Write your code here. */
+	printForest(MTidForest);
+
+	// Iterate through each tree in the forest
 
 	return;
 }
