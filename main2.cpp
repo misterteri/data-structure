@@ -95,9 +95,10 @@ int main(void)
 	Forest F;
 	graph_input(G);
 	// CHECKER 1 <= ce <= 100
+	// CHECKER 1 <= be <= 100
 	for (int i = 0; i < G.E.size(); i++)
 	{
-		if (G.E[i].ce < 1 || G.E[i].ce > 100)
+		if (G.E[i].ce < 1 || G.E[i].ce > 100 || G.E[i].be < 1 || G.E[i].be > 100)
 			return 0;
 	}
 	Problem2 P2(G);
@@ -111,9 +112,10 @@ int main(void)
 			Set D;
 			bool take;
 			insert_input(id, s, t, D, input_string);
+			// CHECK 1 <= t <= 100
+			if (t < 1 || t > 100)
+				return 0;
 			take = P2.insert(id, s, D, t, G, T);
-			F.size++;
-			F.trees.push_back(T);
 		}
 		else if (input_string[0] == 's')
 		{

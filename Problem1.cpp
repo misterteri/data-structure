@@ -11,6 +11,8 @@ class Problem1
 private:
 	Graph networkGraph;
 	unordered_map<int, int> treeTrafficRequests; // map tree id to traffic request
+	Forest networkForest;
+
 public:
 	Problem1(Graph G); // constructor
 	~Problem1();	   // destructor
@@ -151,20 +153,21 @@ vector<int> getReachableVertices(int start, const vector<treeEdge> &edges)
 	return result;
 }
 
-void extendTreeMST(Forest &MTidForest, Graph &G, unordered_map<int, int> &treeTrafficRequests)
+void extendTreeMST(Forest &networkForest, Graph &G, unordered_map<int, int> &treeTrafficRequests, Forest &MTidForest)
 {
 	int totalVertices = G.V.size();
 	// check the missing vertices for each multicast tree
 	// if yes, find the minimum additional cost to add
 	// the missing vertices to the existing multicast tree
 	// in case of the trees in forest has random id, sort the trees in ascending order of id
-	sort(MTidForest.trees.begin(), MTidForest.trees.end(), [](const Tree &a, const Tree &b)
+	sort(networkForest.trees.begin(), networkForest.trees.end(), [](const Tree &a, const Tree &b)
 		 { return a.id < b.id; });
 
-	for (auto &tree : MTidForest.trees)
+	for (auto &tree : networkForest.trees)
 	{
 		if (tree.V.size() < totalVertices)
 		{
+			int added = 0;
 			// find the missing vertices
 			vector<int> missingVertices;
 			for (int i = 1; i <= totalVertices; i++)
@@ -195,6 +198,15 @@ void extendTreeMST(Forest &MTidForest, Graph &G, unordered_map<int, int> &treeTr
 
 						if (hasCycle(tree.E, G.V.size()) == false && edge.b >= treeTrafficRequests[tree.id]) // if no cycle is formed and remaining bandwidth(b) is sufficient for bandwidthcost(ce)
 						{
+							if (added == 0)
+							{
+								cout << "FOREST COPIED" << endl;
+								// copy the tree to MTidForest
+								MTidForest.size++;
+								MTidForest.trees.push_back(tree);
+							}
+							added = 1;
+
 							// update the remaining bandwidth(b) of the edge with the remainingbandwidth(b) deducted with bandwidthcost(ce)
 							edge.b -= treeTrafficRequests[tree.id];
 							// update the transmission cost(ct) of the multicast tree with the bandwidthcost(ce)
@@ -240,11 +252,19 @@ Problem1::Problem1(Graph G)
 	{
 		this->networkGraph.E.push_back(edge);
 	}
+	// initialize the networkForest
+	this->networkForest.size = 0;
+	this->networkForest.trees.clear();
 }
 
 Problem1::~Problem1()
 {
 	/* Write your code here. */
+	// release the memory allocated by vectors
+	this->networkGraph.V.clear();
+	this->networkGraph.E.clear();
+	this->treeTrafficRequests.clear();
+	this->networkForest.trees.clear();
 }
 
 void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
@@ -279,13 +299,42 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 	cout << endl;
 	printGraph(G);
 
+	// CHECK if the source vertex is in the graph
+	if (find(G.V.begin(), G.V.end(), s) == G.V.end())
+	{
+		cout << "ERROR: source vertex is not in the graph" << endl;
+		return;
+	}
+	// CHECK if the destination vertices are in the graph
+	for (const auto &vertex : D.destinationVertices)
+	{
+		if (find(G.V.begin(), G.V.end(), vertex) == G.V.end())
+		{
+			cout << "ERROR: destination vertex is not in the graph" << endl;
+			return;
+		}
+	}
+	// check if the source vertex is in the destination vertices
+	if (find(D.destinationVertices.begin(), D.destinationVertices.end(), s) == D.destinationVertices.end())
+	{
+		cout << "ERROR: source vertex is in the destination vertices" << endl;
+		return;
+	}
+	// for (auto &edge : G.E)
+	// {
+	// 	// CHECKER 1 <= t <= G.E.be <= 100
+	// 	if (t < 1 || t > edge.be || edge.be > 100)
+	// 	{
+	// 		cout << "ERROR: t < 1 || t > edge.be || edge.be > 100" << endl;
+	// 		cout << "t: " << t << " > edge.be: " << edge.be << endl;
+	// 		cout << endl;
+	// 		return;
+	// 	}
+	// }
 	cout << "adding process:";
 	// loop through all the edges in the graph
 	for (auto &edge : G.E)
 	{
-		// CHECKER 1 <= t <= G.E.be <= 100
-		if (t < 1 || t > edge.be || edge.be > 100)
-			return;
 
 		// add the edge to the multicast tree MTid
 		MTid.E.push_back({edge.vertex[0], edge.vertex[1]});
@@ -309,7 +358,12 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 		 << endl;
 
 	MTid.V = getReachableVertices(MTid.s, MTid.E);
-
+	// cout all MTid.V
+	cout << "MTid.V:";
+	for (const auto &vertex : MTid.V)
+	{
+		cout << " " << vertex;
+	}
 	if (MTid.V.size() < G.V.size()) // if the multicast tree is not connected there are 3 cases
 	{
 
@@ -371,7 +425,9 @@ void Problem1::insert(int id, int s, Set D, int t, Graph &G, Tree &MTid)
 	}
 	cout << endl
 		 << endl;
-
+	// make a copy of MTid now to networkForest
+	networkForest.size++;
+	networkForest.trees.push_back(MTid);
 	return;
 }
 
@@ -381,13 +437,13 @@ void Problem1::stop(int id, Graph &G, Forest &MTidForest)
 	   Note: Please "only" include mutlicast trees that you added nodes in MTidForest. */
 	/* Write your code here. */
 	// print the multicast tree forest
-	printForest(MTidForest);
-	cout << "tree id to be removed:" << id << endl;
+	printForest(networkForest);
+	cout << "tree id to be REMOVED:" << id << endl;
 
-	auto treeIt = find_if(MTidForest.trees.begin(), MTidForest.trees.end(), [id](const Tree &tree)
+	auto treeIt = find_if(networkForest.trees.begin(), networkForest.trees.end(), [id](const Tree &tree)
 						  { return tree.id == id; });
 
-	if (treeIt != MTidForest.trees.end()) // if tree with id is found
+	if (treeIt != networkForest.trees.end()) // if tree with id is found
 	{
 		Tree &treeToBeRemoved = *treeIt;
 		// print the multicast tree to be removed
@@ -406,13 +462,23 @@ void Problem1::stop(int id, Graph &G, Forest &MTidForest)
 			}
 		}
 		// remove the multicast tree from the multicast tree forest
-		MTidForest.trees.erase(treeIt);
-		MTidForest.size--;
+		networkForest.trees.erase(treeIt);
+		networkForest.size--;
 		cout << "AFTER CUTTING TREE " << id << endl;
 		printGraph(G);
+		printForest(networkForest);
+		// make sure MTidForest is empty
+		MTidForest.size = 0;
+		MTidForest.trees.clear();
+		cout << "MTidFOREST before rearrange" << endl;
 		printForest(MTidForest);
+		extendTreeMST(networkForest, G, treeTrafficRequests, MTidForest);
 
-		extendTreeMST(MTidForest, G, treeTrafficRequests);
+		cout << "MTidFOREST that is changed" << endl;
+		// sort the multicast tree forest in ascending order of id
+		sort(MTidForest.trees.begin(), MTidForest.trees.end(), [](const Tree &a, const Tree &b)
+			 { return a.id < b.id; });
+		printForest(MTidForest);
 	}
 	else // if not found
 	{
@@ -430,14 +496,22 @@ void Problem1::rearrange(Graph &G, Forest &MTidForest)
 	/* Store your output graph and multicast tree forest into G and MTidForest
 	   Note: Please include "all" active mutlicast trees in MTidForest. */
 	/* Write your code here. */
-
+	cout << "REARRANGE" << endl;
 	// print the multicast tree forest
-	printForest(MTidForest);
+	cout << "networkForest" << endl;
+	printForest(networkForest);
+	cout << "graph " << endl;
 	printGraph(G);
-
+	// make sure MTidForest is empty
+	MTidForest.size = 0;
+	MTidForest.trees.clear();
+	MTidForest.size = networkForest.size;
+	copy(networkForest.trees.begin(), networkForest.trees.end(), back_inserter(MTidForest.trees));
 	// lets first make sure that forest are sorted in ascending order of id
 	sort(MTidForest.trees.begin(), MTidForest.trees.end(), [](const Tree &a, const Tree &b)
 		 { return a.id < b.id; });
+	cout << "MTidFOREST " << endl;
+	printForest(MTidForest);
 
 	// reset the available bandwidth(b) of all the edges in the graph
 	for (auto &edge : G.E)
@@ -450,6 +524,11 @@ void Problem1::rearrange(Graph &G, Forest &MTidForest)
 	{
 		tree.ct = 0;
 	}
+	cout << " resetting process" << endl;
+	// pritnForest(MTidForest);
+	printForest(MTidForest);
+	// print the graph
+	printGraph(G);
 
 	// insert the multicast trees in the forest to the graph G with the traffic request(t)
 
@@ -462,5 +541,12 @@ void Problem1::rearrange(Graph &G, Forest &MTidForest)
 	{
 		insert(tree.id, tree.s, D, getTrafficRequest(tree.id), G, tree);
 	}
+	printForest(MTidForest);
+
+	// copy the multicast tree forest to networkForest
+	networkForest.size = MTidForest.size;
+	networkForest.trees.clear();
+	copy(MTidForest.trees.begin(), MTidForest.trees.end(), back_inserter(networkForest.trees));
+
 	return;
 }
